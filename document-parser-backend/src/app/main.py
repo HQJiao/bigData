@@ -120,27 +120,32 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
         )
         raise HTTPException(status_code=400, detail=f"Unsupported file format: {ext}")
 
-    # 文件去重：基于 filename + file_size 检测
-    existing = (
-        db.query(Document)
-        .filter(Document.filename == file.filename, Document.file_size == file_size)
-        .first()
-    )
-    if existing:
+    # 文件去重：基于 filename + file_size 检测，重复则自动加后缀
+    original_filename = file.filename
+    filename = original_filename
+    name_part = Path(filename).stem
+    ext_part = Path(filename).suffix
+    counter = 1
+    while db.query(Document).filter(
+        Document.filename == filename, Document.file_size == file_size
+    ).first():
+        filename = f"{name_part}_{counter}{ext_part}"
+        counter += 1
+
+    if filename != original_filename:
         logger.info(
-            "duplicate_file_detected",
-            extra={"file_name": file.filename, "existing_id": str(existing.id)},
-        )
-        raise HTTPException(
-            status_code=409,
-            detail="File already exists",
+            "duplicate_file_renamed",
+            extra={
+                "original": original_filename,
+                "new_name": filename,
+            },
         )
 
-    object_path = minio_client.upload_file(file_data, file.filename)
+    object_path = minio_client.upload_file(file_data, filename)
 
     document = Document(
         id=uuid.uuid4(),
-        filename=file.filename,
+        filename=filename,
         file_path=object_path,
         file_size=file_size,
         mime_type=file.content_type,
