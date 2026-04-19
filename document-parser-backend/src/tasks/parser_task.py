@@ -64,7 +64,10 @@ def parse_document(self, document_id: str):
         try:
             parsed = parser_registry.parse_file(tmp_path)
 
-            document.content = parsed.text
+            # 过滤 NUL 字符（PostgreSQL TEXT 列不支持）
+            clean_text = parsed.text.replace("\x00", "") if parsed.text else ""
+
+            document.content = clean_text
             document.parser_type = parsed.parser_type
             document.status = "completed"
             document.extra_metadata = parsed.metadata

@@ -19,6 +19,8 @@ class ExcelParser(IParser):
             df = pd.concat(dfs.values(), ignore_index=True) if dfs else pd.DataFrame()
         
         text_parts = []
+        # 先输出列名（表头）
+        text_parts.append(" | ".join(str(c) for c in df.columns))
         for _, row in df.iterrows():
             row_text = " | ".join(str(v) for v in row.values if pd.notna(v) and str(v).strip())
             if row_text:
