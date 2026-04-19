@@ -2,7 +2,7 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -120,6 +120,22 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db
         )
         raise HTTPException(status_code=400, detail=f"Unsupported file format: {ext}")
 
+    # 文件去重：基于 filename + file_size 检测
+    existing = (
+        db.query(Document)
+        .filter(Document.filename == file.filename, Document.file_size == file_size)
+        .first()
+    )
+    if existing:
+        logger.info(
+            "duplicate_file_detected",
+            extra={"file_name": file.filename, "existing_id": str(existing.id)},
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="File already exists",
+        )
+
     object_path = minio_client.upload_file(file_data, file.filename)
 
     document = Document(
@@ -235,3 +251,54 @@ async def get_document_content(document_id: str, db: Session = Depends(get_db)):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.delete("/files/{document_id}")
+async def delete_document(document_id: str, db: Session = Depends(get_db)):
+    try:
+        doc_id = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+
+    document = db.query(Document).filter(Document.id == doc_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # 先删除 MinIO 中的文件
+    if document.file_path:
+        minio_client.delete_file(document.file_path)
+
+    # 再删除 DB 记录
+    db.delete(document)
+    db.commit()
+
+    logger.info("document_deleted", extra={"document_id": document_id})
+    return {"message": "Document deleted successfully"}
+
+
+@app.post("/files/{document_id}/reparse")
+async def reparse_document(document_id: str, db: Session = Depends(get_db)):
+    try:
+        doc_id = uuid.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+
+    document = db.query(Document).filter(Document.id == doc_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.file_path:
+        raise HTTPException(status_code=400, detail="Document has no associated file")
+
+    document.status = "pending"
+    document.error_message = None
+    db.commit()
+
+    parse_document.delay(str(document.id))
+
+    logger.info("document_reparse_triggered", extra={"document_id": document_id})
+    return DocumentResponse(
+        id=str(document.id),
+        filename=document.filename,
+        status=document.status,
+    )

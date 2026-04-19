@@ -41,23 +41,38 @@
             </el-icon>
             <span class="file-name">{{ f.name }}</span>
             <span class="file-size">{{ formatSize(f.size) }}</span>
+            <span v-if="uploadResults[i]" class="file-status">
+              <span v-if="uploadResults[i].success" class="status-success">已上传</span>
+              <span v-else-if="uploadResults[i].duplicate" class="status-duplicate">已存在</span>
+              <span v-else class="status-error">失败</span>
+            </span>
           </div>
-          <p class="preview-hint">
-            共 {{ previewFiles.length }} 个文件，点击上传
+
+          <!-- Upload All Button -->
+          <div v-if="previewFiles.length > 1 && !uploading" class="upload-actions">
+            <button class="upload-all-btn" @click.stop="uploadAll">
+              全部上传 ({{ previewFiles.length }} 个文件)
+            </button>
+            <button class="clear-btn" @click.stop="clearPreview">清除</button>
+          </div>
+
+          <p v-if="previewFiles.length === 1 && !uploading" class="preview-hint">
+            点击上传
           </p>
         </div>
       </div>
 
+      <!-- Upload Progress -->
       <div v-if="uploading" class="upload-progress">
-        <el-progress :percentage="uploadProgress" :stroke-width="4" />
+        <el-progress
+          :percentage="uploadProgress"
+          :stroke-width="4"
+          :status="uploadProgress >= 100 ? 'success' : undefined"
+        />
+        <p class="upload-progress-text">正在上传 {{ uploadedCount }}/{{ previewFiles.length }}</p>
       </div>
 
-      <div v-if="uploadedDoc" class="upload-success">
-        <el-icon :size="18" color="var(--color-success)"><CircleCheckFilled /></el-icon>
-        <span>已上传：<strong>{{ uploadedDoc.filename }}</strong></span>
-        <router-link :to="`/documents/${uploadedDoc.id}`" class="view-link">查看详情</router-link>
-      </div>
-
+      <!-- Upload Error -->
       <div v-if="uploadError" class="upload-error">
         <el-icon :size="18" color="var(--color-error)"><CircleCloseFilled /></el-icon>
         <span>{{ uploadError }}</span>
@@ -92,6 +107,14 @@
       </div>
     </section>
 
+    <!-- Batch Operations Bar -->
+    <section v-if="selectedIds.length > 0" class="batch-bar">
+      <span class="selected-count">已选择 {{ selectedIds.length }} 个文件</span>
+      <button class="batch-btn" @click="batchReparse">重新解析</button>
+      <button class="batch-btn batch-btn-danger" @click="batchDelete">删除</button>
+      <button class="batch-btn batch-btn-clear" @click="clearSelection">取消</button>
+    </section>
+
     <!-- Document List -->
     <section class="list-section">
       <div v-if="store.loading" class="loading-state">
@@ -105,15 +128,35 @@
 
       <div v-else class="document-list">
         <div
-          v-for="doc in filteredDocuments"
+          v-for="doc in paginatedDocuments"
           :key="doc.id"
           class="document-card"
+          :class="{ selected: selectedIds.includes(doc.id) }"
           @click="$router.push(`/documents/${doc.id}`)"
         >
+          <label class="card-checkbox" @click.stop>
+            <input
+              type="checkbox"
+              :checked="selectedIds.includes(doc.id)"
+              @change="toggleSelect(doc.id)"
+            />
+          </label>
           <span class="card-title">{{ doc.filename }}</span>
           <span class="card-tags">
             <StatusBadge :status="doc.status" />
             <span v-if="getFormatLabel(doc)" class="format-label">{{ getFormatLabel(doc) }}</span>
+          </span>
+          <span class="card-actions" @click.stop>
+            <el-tooltip v-if="doc.status === 'failed'" content="重新解析" placement="top">
+              <el-icon class="action-icon" :size="14" @click="store.reparseDocument(doc.id); store.fetchDocuments()">
+                <Refresh />
+              </el-icon>
+            </el-tooltip>
+            <el-tooltip content="删除" placement="top">
+              <el-icon class="action-icon action-icon-danger" :size="14" @click="confirmDelete(doc)">
+                <Delete />
+              </el-icon>
+            </el-tooltip>
           </span>
           <el-icon class="card-arrow" :size="16" color="var(--color-stone-gray)">
             <ArrowRight />
@@ -122,11 +165,11 @@
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalFiltered > 20" class="pagination">
+      <div v-if="store.total > pageSize" class="pagination">
         <el-pagination
           v-model:current-page="page"
-          :page-size="20"
-          :total="totalFiltered"
+          :page-size="pageSize"
+          :total="store.total"
           layout="prev, pager, next"
           @current-change="changePage"
           small
@@ -137,10 +180,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDocumentStore } from '../stores/documents'
-import type { DocumentItem } from '../stores/documents'
-import { UploadFilled, Document, Search, Loading, ArrowRight, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
+import type { DocumentItem, UploadResult } from '../stores/documents'
+import { UploadFilled, Document, Search, Loading, ArrowRight, CircleCloseFilled, Refresh, Delete } from '@element-plus/icons-vue'
 import StatusBadge from '../components/common/StatusBadge.vue'
 
 const store = useDocumentStore()
@@ -149,10 +192,14 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
-const uploadedDoc = ref<DocumentItem | null>(null)
+const uploadedCount = ref(0)
 const uploadError = ref('')
 const previewFiles = ref<File[]>([])
+const uploadResults = ref<UploadResult[]>([])
 const page = ref(1)
+const pageSize = 20
+const selectedIds = ref<string[]>([])
+const pollingTimer = ref<number | null>(null)
 
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -160,11 +207,14 @@ const formatFilter = ref('')
 
 onMounted(() => {
   store.fetchDocuments(page.value)
+  startPolling()
 })
 
-const totalFiltered = computed(() => filteredDocuments.value.length)
+onUnmounted(() => {
+  stopPolling()
+})
 
-const filteredDocuments = computed(() => {
+const paginatedDocuments = computed(() => {
   let docs = [...store.documents]
 
   if (searchQuery.value) {
@@ -224,37 +274,123 @@ function onFileSelect(e: Event) {
 
 function setPreview(files: File[]) {
   previewFiles.value = files
+  uploadResults.value = []
   uploadError.value = ''
   if (files.length === 1) doUpload(files[0])
+}
+
+function clearPreview() {
+  previewFiles.value = []
+  uploadResults.value = []
 }
 
 async function doUpload(file: File) {
   uploading.value = true
   uploadProgress.value = 0
+  uploadedCount.value = 0
   uploadError.value = ''
-  uploadedDoc.value = null
+  uploadResults.value = []
 
   const timer = setInterval(() => {
     if (uploadProgress.value < 90) uploadProgress.value += 10
   }, 200)
 
   try {
-    uploadedDoc.value = await store.uploadFile(file)
+    const doc = await store.uploadFile(file)
     uploadProgress.value = 100
+    uploadedCount.value = 1
+    uploadResults.value = [{ file, success: true, document: doc }]
     await store.fetchDocuments(page.value)
   } catch {
     uploadError.value = '上传失败，请重试'
+    uploadResults.value = [{ file, success: false, error: '上传失败' }]
   } finally {
     clearInterval(timer)
     uploading.value = false
-    previewFiles.value = []
   }
+}
+
+async function uploadAll() {
+  uploading.value = true
+  uploadProgress.value = 0
+  uploadedCount.value = 0
+  uploadError.value = ''
+  uploadResults.value = previewFiles.value.map(f => ({ file: f, success: false }))
+
+  const results = await store.uploadFiles(previewFiles.value)
+  uploadResults.value = results
+
+  let successCount = 0
+  results.forEach((r, i) => {
+    if (r.success) successCount++
+    uploadProgress.value = Math.round(((i + 1) / results.length) * 100)
+  })
+  uploadedCount.value = successCount
+
+  await store.fetchDocuments(page.value)
+  uploading.value = false
+
+  const dupCount = results.filter(r => r.duplicate).length
+  const failCount = results.filter(r => !r.success && !r.duplicate).length
+  if (failCount > 0) {
+    uploadError.value = `${failCount} 个文件上传失败`
+  }
+  if (dupCount > 0) {
+    uploadError.value = uploadError.value
+      ? uploadError.value + `，${dupCount} 个文件已存在`
+      : `${dupCount} 个文件已存在`
+  }
+}
+
+function toggleSelect(id: string) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx >= 0) selectedIds.value.splice(idx, 1)
+  else selectedIds.value.push(id)
+}
+
+function clearSelection() {
+  selectedIds.value = []
+}
+
+function confirmDelete(doc: DocumentItem) {
+  if (confirm(`确定删除「${doc.filename}」吗？此操作不可撤销。`)) {
+    store.deleteDocument(doc.id)
+  }
+}
+
+async function batchDelete() {
+  if (!confirm(`确定删除选中的 ${selectedIds.value.length} 个文件吗？此操作不可撤销。`)) return
+  await store.deleteDocuments(selectedIds.value)
+  selectedIds.value = []
+}
+
+async function batchReparse() {
+  await store.reparseDocuments(selectedIds.value)
+  selectedIds.value = []
+  await store.fetchDocuments(page.value)
 }
 
 function changePage(p: number) {
   if (p < 1) return
   page.value = p
   store.fetchDocuments(p)
+}
+
+// 实时状态轮询
+function startPolling() {
+  pollingTimer.value = window.setInterval(async () => {
+    const hasPending = store.documents.some(d => d.status === 'pending' || d.status === 'processing')
+    if (hasPending) {
+      await store.fetchDocuments(page.value)
+    }
+  }, 3000)
+}
+
+function stopPolling() {
+  if (pollingTimer.value) {
+    clearInterval(pollingTimer.value)
+    pollingTimer.value = null
+  }
 }
 </script>
 
@@ -361,6 +497,56 @@ function changePage(p: number) {
   flex-shrink: 0;
 }
 
+.file-status {
+  flex-shrink: 0;
+  font-size: var(--text-caption);
+  font-weight: 500;
+}
+
+.status-success { color: var(--color-success); }
+.status-duplicate { color: var(--color-terracotta); }
+.status-error { color: var(--color-error); }
+
+/* Upload Actions */
+.upload-actions {
+  display: flex;
+  gap: var(--space-10);
+  margin-top: var(--space-12);
+  justify-content: center;
+}
+
+.upload-all-btn {
+  background: var(--color-terracotta);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-comfort);
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.upload-all-btn:hover {
+  opacity: 0.85;
+}
+
+.clear-btn {
+  background: transparent;
+  color: var(--color-stone-gray);
+  border: 1px solid var(--color-border-warm);
+  border-radius: var(--radius-comfort);
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--text-small);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.clear-btn:hover {
+  color: var(--color-near-black);
+  border-color: var(--color-stone-gray);
+}
+
 .preview-hint {
   margin-top: var(--space-10);
   font-size: var(--text-caption);
@@ -371,6 +557,13 @@ function changePage(p: number) {
 /* Upload Progress / Status */
 .upload-progress {
   margin-top: var(--space-16);
+}
+
+.upload-progress-text {
+  margin-top: var(--space-6);
+  font-size: var(--text-caption);
+  color: var(--color-olive-gray);
+  text-align: center;
 }
 
 .upload-success {
@@ -430,6 +623,52 @@ function changePage(p: number) {
   width: 120px;
 }
 
+/* Batch Bar */
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-16);
+  background: var(--color-ivory);
+  border: 1px solid var(--color-border-cream);
+  border-radius: var(--radius-comfort);
+  margin-bottom: var(--space-16);
+  box-shadow: var(--shadow-whisper);
+}
+
+.selected-count {
+  flex: 1;
+  font-size: var(--text-small);
+  color: var(--color-terracotta);
+  font-weight: 500;
+}
+
+.batch-btn {
+  background: var(--color-terracotta);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-comfort);
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.batch-btn:hover {
+  opacity: 0.85;
+}
+
+.batch-btn-danger {
+  background: var(--color-error);
+}
+
+.batch-btn-clear {
+  background: transparent;
+  color: var(--color-stone-gray);
+  border: 1px solid var(--color-border-warm);
+}
+
 /* Document List */
 .document-list {
   background: var(--color-ivory);
@@ -446,7 +685,7 @@ function changePage(p: number) {
   border-top: 1px solid var(--color-border-cream);
   cursor: pointer;
   transition: background 0.15s;
-  gap: var(--space-12);
+  gap: var(--space-8);
 }
 
 .document-card:first-child {
@@ -455,6 +694,32 @@ function changePage(p: number) {
 
 .document-card:hover {
   background: var(--color-parchment);
+}
+
+.document-card.selected {
+  background: rgba(201, 100, 66, 0.04);
+}
+
+.card-checkbox {
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.card-checkbox input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-stone-gray);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.card-checkbox input[type="checkbox"]:checked {
+  border-color: var(--color-terracotta);
+  background: var(--color-terracotta);
 }
 
 .card-title {
@@ -480,6 +745,36 @@ function changePage(p: number) {
   font-size: var(--text-label);
   color: var(--color-stone-gray);
   letter-spacing: 0.02em;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.document-card:hover .card-actions {
+  opacity: 1;
+}
+
+.action-icon {
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.action-icon:hover {
+  background: rgba(201, 100, 66, 0.1);
+  color: var(--color-terracotta);
+}
+
+.action-icon-danger:hover {
+  background: rgba(181, 51, 51, 0.1);
+  color: var(--color-error);
 }
 
 .card-arrow {
