@@ -42,5 +42,6 @@
 - [x] 编辑已解析内容并保存
 - [x] 下载解析结果为 .txt 文件
 - [x] 暖色设计系统（DESIGN.md）全面替换
+- [x] OCR 解析器适配新版 PaddleOCR API（predict() 替代 ocr()）
 - [x] 状态徽章组件
 - [x] 健康检查端点

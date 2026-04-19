@@ -13,26 +13,24 @@ class OcrParser(IParser):
     def ocr(self):
         if self._ocr is None:
             from paddleocr import PaddleOCR
-            self._ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+            self._ocr = PaddleOCR(lang="ch")
         return self._ocr
 
     def parse(self, file_path: Path) -> ParsedContent:
         ext = file_path.suffix.lower()
-        
-        if ext in [".png", ".jpg", ".jpeg", ".bmp"]:
-            result = self.ocr.ocr(str(file_path), cls=True)
-        else:
+
+        if ext not in [".png", ".jpg", ".jpeg", ".bmp"]:
             raise ValueError(f"OcrParser does not support format: {ext}")
-        
+
+        result = self.ocr.predict(str(file_path))
+
         text_lines = []
-        if result and result[0]:
-            for line in result[0]:
-                if line and len(line) >= 2:
-                    text = line[1][0]
-                    text_lines.append(text)
-        
+        if result and isinstance(result, list) and result[0]:
+            rec_texts = result[0].get("rec_texts", [])
+            text_lines = [t for t in rec_texts if t]
+
         all_text = "\n".join(text_lines)
-        
+
         return ParsedContent(
             text=all_text,
             parser_type="ocr",
