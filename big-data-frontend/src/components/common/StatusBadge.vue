@@ -1,7 +1,7 @@
 <template>
-  <el-tag :type="tagType" size="small" class="status-badge">
+  <span class="status-badge" :style="{ backgroundColor: bg, color: fg }">
     {{ label }}
-  </el-tag>
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -16,20 +16,28 @@ const labelMap: Record<string, string> = {
   failed: '失败',
 }
 
-const typeMap: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
-  pending: 'warning',
-  processing: 'warning',
-  completed: 'success',
-  failed: 'danger',
+const colorMap: Record<string, { bg: string; fg: string }> = {
+  pending: { bg: 'rgba(201,100,66,0.10)', fg: 'var(--color-terracotta)' },
+  processing: { bg: 'rgba(201,100,66,0.10)', fg: 'var(--color-terracotta)' },
+  completed: { bg: 'rgba(107,143,60,0.10)', fg: 'var(--color-success)' },
+  failed: { bg: 'rgba(181,51,51,0.10)', fg: 'var(--color-error)' },
 }
 
 const label = labelMap[props.status] || props.status
-const tagType = typeMap[props.status] || 'info'
+const colors = colorMap[props.status] || { bg: 'rgba(94,93,89,0.08)', fg: 'var(--color-stone-gray)' }
+const bg = colors.bg
+const fg = colors.fg
 </script>
 
 <style scoped>
 .status-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
   font-family: var(--font-sans);
-  border-radius: var(--radius-subtle);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
 }
 </style>
