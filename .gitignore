@@ -24,5 +24,8 @@ big-data-frontend/dist/
 # Build output
 dist/
 
+*.log
+*.db
+
 # Memory (keep out of git)
 memory/
