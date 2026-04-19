@@ -1,0 +1,88 @@
+/*
+ * Design tokens based on DESIGN.md — Anthropic-inspired warm palette
+ * All colors have warm yellow-brown undertones. No cool blue-grays.
+ */
+
+:root {
+  /* Primary */
+  --color-near-black: #141413;
+  --color-terracotta: #c96442;
+  --color-coral: #d97757;
+
+  /* Semantic */
+  --color-error: #b53333;
+  --color-focus-blue: #3898ec;
+  --color-success: #6b8f3c;
+  --color-warning: #c96442;
+
+  /* Surface & Background */
+  --color-parchment: #f5f4ed;
+  --color-ivory: #faf9f5;
+  --color-white: #ffffff;
+  --color-warm-sand: #e8e6dc;
+  --color-dark-surface: #30302e;
+  --color-deep-dark: #141413;
+
+  /* Neutrals & Text */
+  --color-charcoal: #4d4c48;
+  --color-olive-gray: #5e5d59;
+  --color-stone-gray: #87867f;
+  --color-dark-warm: #3d3d3a;
+  --color-warm-silver: #b0aea5;
+
+  /* Borders & Rings */
+  --color-border-cream: #f0eee6;
+  --color-border-warm: #e8e6dc;
+  --color-border-dark: #30302e;
+  --color-ring-warm: #d1cfc5;
+  --color-ring-subtle: #dedc01;
+  --color-ring-deep: #c2c0b6;
+
+  /* Typography */
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+
+  /* Font sizes */
+  --text-display: 4rem;      /* 64px */
+  --text-section: 3.25rem;   /* 52px */
+  --text-h1: 2rem;           /* 32px */
+  --text-h2: 1.6rem;         /* 25.6px */
+  --text-h3: 1.3rem;         /* 20.8px */
+  --text-body-large: 1.25rem; /* 20px */
+  --text-body: 1rem;         /* 16px */
+  --text-small: 0.94rem;     /* 15px */
+  --text-caption: 0.88rem;   /* 14px */
+  --text-label: 0.75rem;     /* 12px */
+
+  /* Line heights */
+  --lh-tight: 1.10;
+  --lh-heading: 1.20;
+  --lh-relaxed: 1.60;
+
+  /* Spacing (8px base) */
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-30: 30px;
+
+  /* Border radius */
+  --radius-sharp: 4px;
+  --radius-subtle: 6px;
+  --radius-comfort: 8px;
+  --radius-generous: 12px;
+  --radius-featured: 16px;
+  --radius-very: 24px;
+  --radius-max: 32px;
+
+  /* Shadows */
+  --shadow-whisper: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+  --shadow-ring: 0px 0px 0px 1px var(--color-ring-warm);
+  --shadow-ring-dark: 0px 0px 0px 1px var(--color-border-dark);
+}

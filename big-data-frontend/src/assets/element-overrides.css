@@ -1,0 +1,188 @@
+/*
+ * Element Plus overrides — map Element Plus defaults to our warm design tokens.
+ * Loaded after Element Plus CSS so these take precedence.
+ */
+
+:root {
+  /* Primary color system */
+  --el-color-primary: var(--color-terracotta);
+  --el-color-primary-light-3: #d4876d;
+  --el-color-primary-light-5: #dda490;
+  --el-color-primary-light-7: #e6c0b3;
+  --el-color-primary-light-8: #ebd0c7;
+  --el-color-primary-light-9: #f0e0db;
+  --el-color-primary-dark-2: #a35034;
+
+  /* Background colors */
+  --el-bg-color: var(--color-ivory);
+  --el-bg-color-overlay: var(--color-white);
+  --el-bg-color-page: var(--color-parchment);
+
+  /* Text colors */
+  --el-text-color-primary: var(--color-near-black);
+  --el-text-color-regular: var(--color-olive-gray);
+  --el-text-color-secondary: var(--color-stone-gray);
+  --el-text-color-placeholder: var(--color-stone-gray);
+  --el-text-color-disabled: var(--color-warm-silver);
+
+  /* Border colors */
+  --el-border-color: var(--color-border-cream);
+  --el-border-color-light: var(--color-border-cream);
+  --el-border-color-lighter: var(--color-border-warm);
+  --el-border-color-extra-light: var(--color-border-warm);
+  --el-border-color-dark: var(--color-border-dark);
+  --el-border-color-darker: var(--color-deep-dark);
+
+  /* Fill colors */
+  --el-fill-color: var(--color-warm-sand);
+  --el-fill-color-light: var(--color-ivory);
+  --el-fill-color-lighter: var(--color-parchment);
+  --el-fill-color-extra-light: var(--color-parchment);
+  --el-fill-color-dark: var(--color-dark-surface);
+  --el-fill-color-blank: var(--color-ivory);
+
+  /* Button overrides */
+  --el-button-hover-text-color: var(--color-white);
+  --el-button-active-text-color: var(--color-white);
+
+  /* Menu (sidebar) — dark theme */
+  --el-menu-bg-color: var(--color-deep-dark);
+  --el-menu-text-color: var(--color-warm-silver);
+  --el-menu-hover-text-color: var(--color-ivory);
+  --el-menu-hover-bg-color: var(--color-dark-surface);
+  --el-menu-active-color: var(--color-terracotta);
+  --el-menu-bg-color-dark: var(--color-deep-dark);
+  --el-menu-level-padding: 20px;
+
+  /* Header */
+  --el-header-height: 56px;
+
+  /* Input focus — the one cool color moment */
+  --el-input-focus-border-color: var(--color-focus-blue);
+
+  /* Dialog / Message */
+  --el-mask-color: rgba(20, 20, 19, 0.6);
+
+  /* Misc */
+  --el-disabled-bg-color: var(--color-parchment);
+  --el-disabled-border-color: var(--color-border-warm);
+}
+
+/* Specific component overrides */
+
+.el-button--primary {
+  background-color: var(--color-terracotta);
+  border-color: var(--color-terracotta);
+}
+
+.el-button--primary:hover,
+.el-button--primary:focus {
+  background-color: var(--color-coral);
+  border-color: var(--color-coral);
+}
+
+.el-button {
+  border-radius: var(--radius-comfort);
+  font-family: var(--font-sans);
+}
+
+.el-input__wrapper {
+  border-radius: var(--radius-generous);
+  background-color: var(--color-ivory);
+  box-shadow: none;
+  border: 1px solid var(--color-border-warm);
+}
+
+.el-input__wrapper.is-focus {
+  box-shadow: none;
+  border-color: var(--color-focus-blue);
+}
+
+.el-table th.el-table__cell {
+  background-color: var(--color-parchment);
+  color: var(--color-near-black);
+}
+
+.el-table td.el-table__cell,
+.el-table th.el-table__cell.is-leaf {
+  border-bottom: 1px solid var(--color-border-cream);
+}
+
+.el-table--border .el-table__cell {
+  border-color: var(--color-border-cream);
+}
+
+.el-pagination button {
+  background-color: var(--color-ivory);
+  border: 1px solid var(--color-border-warm);
+  color: var(--color-near-black);
+  border-radius: var(--radius-comfort);
+}
+
+.el-pagination button:hover:not(:disabled) {
+  color: var(--color-terracotta);
+}
+
+.el-pagination .el-pager li {
+  color: var(--color-olive-gray);
+  border-radius: var(--radius-comfort);
+}
+
+.el-pagination .el-pager li.is-active {
+  background-color: var(--color-terracotta);
+  color: var(--color-white);
+}
+
+.el-menu {
+  border-right: none !important;
+}
+
+.el-menu--horizontal {
+  border-bottom: 1px solid var(--color-border-cream);
+}
+
+.el-sub-menu__title:hover,
+.el-menu-item:hover {
+  background-color: var(--color-dark-surface) !important;
+}
+
+.el-menu-item.is-active {
+  color: var(--color-terracotta) !important;
+}
+
+.el-empty {
+  color: var(--color-olive-gray);
+}
+
+.el-tag {
+  border-radius: var(--radius-subtle);
+  border: none;
+}
+
+.el-tag--success {
+  background-color: rgba(107, 143, 60, 0.12);
+  color: var(--color-success);
+}
+
+.el-tag--warning {
+  background-color: rgba(201, 100, 66, 0.12);
+  color: var(--color-terracotta);
+}
+
+.el-tag--danger {
+  background-color: rgba(181, 51, 51, 0.12);
+  color: var(--color-error);
+}
+
+.el-tag--info {
+  background-color: rgba(94, 93, 89, 0.1);
+  color: var(--color-stone-gray);
+}
+
+.el-progress__text {
+  color: var(--color-olive-gray);
+}
+
+.el-progress-bar__inner {
+  background-color: var(--color-terracotta);
+}

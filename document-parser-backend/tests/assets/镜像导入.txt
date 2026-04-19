@@ -1,0 +1,17 @@
+1. 将python-project.tar镜像文件复制到服务器本地
+2. 导入镜像： sudo docker load -i python-project.tar
+3. 检查镜像： sudo docker images       
+	可以看到
+	python-project   py310     7b11d8e99040    4.73GB
+4. 容器启动命令：  
+	docker run -it -v 【宿主机本地工程目录】:/workspace/langgraph_backend  -p 【宿主机映射端口】:8000 7b11d /bin/bash  
+	-v 目录映射 宿主机目录：容器内目录
+	-p 端口映射 宿主机端口：容器内端口
+	--name 容器名字
+
+
+PS：以上命令如没有权限，使用 sudo+命令的方式执行
+docker ps -a 查看所有容器
+docker exec -it 【容器名字】 /bin/bash
+退出但不关闭容器： 使用ctrl+p+q快捷键
+

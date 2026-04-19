@@ -1,0 +1,28 @@
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Env
+.env
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Node
+big-data-frontend/node_modules/
+big-data-frontend/dist/
+
+# Build output
+dist/
+
+# Memory (keep out of git)
+memory/
