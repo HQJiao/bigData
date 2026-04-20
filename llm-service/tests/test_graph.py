@@ -19,7 +19,7 @@ def test_graph_single_turn():
         result = graph.invoke({"messages": [("human", "你好")]})
 
         assert result["llm_response"] == "这是回答。"
-        assert len(result["messages"]) >= 1
+        assert len(result["messages"]) == 2  # HumanMessage + AIMessage
 
 
 def test_graph_multi_turn():
@@ -49,5 +49,5 @@ def test_graph_multi_turn():
             {"messages": result["messages"] + [("human", "有什么著名景点？")]}
         )
         assert result["llm_response"] == "故宫。"
-        # messages 应包含两轮对话
+        # messages 应包含: 2 条第一轮 + 1 条新的 human = 3
         assert len(result["messages"]) >= 3
