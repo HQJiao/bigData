@@ -2,8 +2,9 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query
-from fastapi.responses import Response
+import httpx
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Query, Request
+from fastapi.responses import Response, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -27,6 +28,8 @@ import src.parsers.text_parser
 
 logger = get_logger("api")
 
+LLM_SERVICE_URL = "http://localhost:8001"
+
 app = FastAPI(
     title="文档解析存储系统",
     description="支持多种格式文档上传、解析、存储",
@@ -49,6 +52,43 @@ async def startup_event():
         logger.info("frontend_static_files_mounted", extra={"directory": str(frontend_dist)})
 
     logger.info("application_started")
+
+
+@app.api_route("/api/llm/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy_llm(request: Request, path: str):
+    """将 /api/llm/* 请求转发到 LLM Service"""
+    url = f"{LLM_SERVICE_URL}/api/llm/{path}"
+    body = await request.body()
+
+    # 流式转发
+    if path.startswith("chat/stream"):
+        async def stream_forward():
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    method=request.method,
+                    url=url,
+                    headers={"content-type": "application/json"},
+                    content=body,
+                    timeout=120,
+                ) as response:
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+
+        return StreamingResponse(stream_forward(), media_type="text/event-stream")
+
+    # 普通请求
+    async with httpx.AsyncClient() as client:
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers={"content-type": "application/json"},
+            content=body,
+            timeout=120,
+        )
+        return JSONResponse(
+            content=resp.json(),
+            status_code=resp.status_code,
+        )
 
 
 class DocumentResponse(BaseModel):
