@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$SCRIPT_DIR/document-parser-backend"
 FRONTEND_DIR="$SCRIPT_DIR/big-data-frontend"
+LLM_DIR="$SCRIPT_DIR/llm-service"
 LOG_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
@@ -43,6 +44,12 @@ if [ "$1" = "--stop" ]; then
     if [ -f "$LOG_DIR/uvicorn.pid" ]; then
         kill "$(cat "$LOG_DIR/uvicorn.pid")" 2>/dev/null && ok "已停止后端 (Uvicorn)" || warn "Uvicorn 未运行"
         rm -f "$LOG_DIR/uvicorn.pid"
+    fi
+
+    # LLM Service
+    if [ -f "$LOG_DIR/llm.pid" ]; then
+        kill "$(cat "$LOG_DIR/llm.pid")" 2>/dev/null && ok "已停止 LLM Service" || warn "LLM Service 未运行"
+        rm -f "$LOG_DIR/llm.pid"
     fi
 
     # Docker 可选停止
@@ -141,6 +148,27 @@ else
     fi
 fi
 
+# ─── 步骤 4.5: 启动 LLM Service ───
+info "启动 LLM 服务 (Uvicorn :8001)..."
+if ! check_port 8001 "LLM" "llm.pid"; then
+    conda activate bigData >/dev/null 2>&1
+    cd "$LLM_DIR"
+    uvicorn src.app.main:app --port 8001 > "$LOG_DIR/llm.log" 2>&1 &
+    echo $! > "$LOG_DIR/llm.pid"
+
+    for i in $(seq 1 15); do
+        if curl -s --connect-timeout 1 http://localhost:8001/health >/dev/null 2>&1; then
+            ok "LLM 服务启动成功 (PID: $(cat $LOG_DIR/llm.pid))"
+            break
+        fi
+        if [ "$i" -eq 15 ]; then
+            warn "LLM 服务启动超时，请查看日志: $LOG_DIR/llm.log"
+            break
+        fi
+        sleep 1
+    done
+fi
+
 # ─── 步骤 5: 启动前端 ───
 info "启动前端服务 (Vite :5173)..."
 if ! check_port 5173 "前端" "frontend.pid"; then
@@ -161,6 +189,7 @@ echo ""
 echo -e "${GREEN}=== 服务已全部启动 ===${NC}"
 echo -e "  后端 API:  ${BLUE}http://localhost:8000${NC}"
 echo -e "  API 文档:  ${BLUE}http://localhost:8000/docs${NC}"
+echo -e "  LLM 服务:  ${BLUE}http://localhost:8001${NC}"
 echo -e "  前端界面:  ${BLUE}http://localhost:5173${NC}"
 echo -e "  MinIO 面板:${BLUE}http://localhost:9001${NC}"
 echo ""
