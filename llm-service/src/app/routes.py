@@ -11,7 +11,7 @@ from src.graph.chat_graph import build_chat_graph
 router = APIRouter()
 
 # 简易内存会话存储（后续可替换为 Redis/DB）
-_conversations: dict[str, list[dict]] = {}
+_history: dict[str, list[dict]] = {}
 
 
 class ChatRequest(BaseModel):
@@ -34,14 +34,17 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
     conv_id = req.conversation_id or _new_conversation_id()
-    messages = _conversations.setdefault(conv_id, [])
-    messages.append({"role": "user", "content": req.message})
+    history = _history.setdefault(conv_id, [])
+    history.append({"role": "user", "content": req.message})
+
+    # 复制一份给 graph（避免 LangGraph 修改原始历史）
+    messages = list(history)
 
     graph = build_chat_graph(client)
     result = graph.invoke({"messages": messages})
 
     assistant_msg = result.get("llm_response", "")
-    messages.append({"role": "assistant", "content": assistant_msg})
+    history.append({"role": "assistant", "content": assistant_msg})
 
     return ChatResponse(reply=assistant_msg, conversation_id=conv_id)
 
@@ -58,13 +61,15 @@ async def chat_stream(req: ChatRequest):
             return
 
         conv_id = req.conversation_id or _new_conversation_id()
-        messages = _conversations.setdefault(conv_id, [])
-        messages.append({"role": "user", "content": req.message})
+        history = _history.setdefault(conv_id, [])
+        history.append({"role": "user", "content": req.message})
 
         yield f"data: {json.dumps({'event': 'start', 'conversation_id': conv_id})}\n\n"
 
         full_reply = ""
         try:
+            # 复制一份给 chat_stream（避免修改原始历史）
+            messages = list(history)
             async for chunk in client.chat_stream(messages):
                 full_reply += chunk
                 yield f"data: {json.dumps({'event': 'token', 'content': chunk})}\n\n"
