@@ -227,7 +227,7 @@ function scrollToBottom() {
 }
 
 onMounted(() => {
-  fetchList()
+  fetchList().catch(() => console.error('Failed to fetch conversations'))
   loadDocuments()
 })
 </script>
