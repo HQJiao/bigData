@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # 文档服务地址
     doc_parser_url: str = "http://localhost:8000"
 
+    # 数据库地址
+    database_url: str = "postgresql://docuser:docpass@localhost:5432/docparser"
+
     class Config:
         env_file = ".env"
 

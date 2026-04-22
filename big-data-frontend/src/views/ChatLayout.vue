@@ -125,9 +125,11 @@ import MarkdownRenderer from '../components/chat/MarkdownRenderer.vue'
 import { useConversationStore } from '../stores/conversations'
 import { chatStream } from '../api/llm'
 import type { ChatMessage } from '../api/llm'
+import { storeToRefs } from 'pinia'
 
 const store = useConversationStore()
-const { conversations, active, fetchList, fetchConversation, createConversation, deleteConversation, renameConversation, setActive } = store
+const { conversations, active } = storeToRefs(store)
+const { fetchList, fetchConversation, createConversation, deleteConversation, renameConversation, setActive } = store
 
 const localActiveId = computed({
   get: () => store.activeId,
@@ -214,7 +216,7 @@ async function handleItemAction(action: string, id: string) {
     if (localActiveId.value === id) messages.value = []
   } else if (action === 'rename') {
     const { value } = await ElMessageBox.prompt('输入新标题', '重命名', {
-      inputValue: conversations.find(c => c.id === id)?.title || '',
+      inputValue: conversations.value.find(c => c.id === id)?.title || '',
     })
     if (value) await renameConversation(id, value)
   }

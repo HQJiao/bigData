@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from src.app.routes import router
+from src.app.database import init_db
 
 app = FastAPI(
     title="LLM 对话服务",
@@ -8,6 +9,11 @@ app = FastAPI(
 )
 
 app.include_router(router, prefix="/api/llm", tags=["llm"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    init_db()
 
 
 @app.get("/health")
