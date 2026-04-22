@@ -127,7 +127,7 @@ import { chatStream } from '../api/llm'
 import type { ChatMessage } from '../api/llm'
 
 const store = useConversationStore()
-const { conversations, active, fetchList, createConversation, deleteConversation, renameConversation, setActive } = store
+const { conversations, active, fetchList, fetchConversation, createConversation, deleteConversation, renameConversation, setActive } = store
 
 const localActiveId = computed({
   get: () => store.activeId,
@@ -157,9 +157,14 @@ async function createNew() {
   messages.value = []
 }
 
-function selectConversation(id: string) {
+async function selectConversation(id: string) {
   setActive(id)
-  messages.value = []
+  const conv = await fetchConversation(id)
+  if (conv) {
+    messages.value = conv.messages
+  } else {
+    messages.value = []
+  }
 }
 
 async function sendMessage() {

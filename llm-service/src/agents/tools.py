@@ -36,13 +36,19 @@ class SearchDocumentsTool(BaseTool):
 
         client = DocumentClient()
         if doc_ids:
-            # 搜索指定文档
+            # 获取指定文档的完整内容
             results = []
             for doc_id in doc_ids:
-                doc = await client.get_document(doc_id)
-                if doc.get("content") and query.lower() in doc["content"].lower():
-                    results.append(f"【{doc['filename']}】包含相关内容。")
-            return "\n".join(results) if results else "指定文档中未找到相关内容。"
+                try:
+                    doc = await client.get_document(doc_id)
+                    content = doc.get("content", "")
+                    if content:
+                        results.append(f"【{doc['filename']}】\n{content}")
+                    else:
+                        results.append(f"【{doc.get('filename', doc_id)}】内容为空或解析失败。")
+                except Exception:
+                    results.append(f"文档 {doc_id} 获取失败。")
+            return "\n\n---\n\n".join(results) if results else "指定文档中未找到相关内容。"
 
         # 搜索所有已完成文档
         docs = await client.list_documents()

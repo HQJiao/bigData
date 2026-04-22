@@ -22,6 +22,13 @@ export const useConversationStore = defineStore('conversations', () => {
     conversations.value = data
   }
 
+  async function fetchConversation(id: string) {
+    const res = await fetch(`/api/llm/conversations/${id}`)
+    if (!res.ok) return null
+    const data = await res.json()
+    return data
+  }
+
   async function createConversation(title = '新对话') {
     const res = await fetch('/api/llm/conversations', {
       method: 'POST',
@@ -60,6 +67,7 @@ export const useConversationStore = defineStore('conversations', () => {
     active,
     loading,
     fetchList,
+    fetchConversation,
     createConversation,
     deleteConversation,
     renameConversation,

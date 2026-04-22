@@ -28,6 +28,12 @@ class ConversationItem(BaseModel):
     message_count: int
 
 
+class ConversationDetail(BaseModel):
+    id: str
+    title: str
+    messages: list[dict]
+
+
 class ChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
@@ -56,6 +62,18 @@ async def list_conversations():
             message_count=len(data["messages"]),
         ))
     return items
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def get_conversation(conversation_id: str):
+    if conversation_id not in _conversations:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv = _conversations[conversation_id]
+    return ConversationDetail(
+        id=conversation_id,
+        title=conv["title"],
+        messages=conv["messages"],
+    )
 
 
 @router.delete("/conversations/{conversation_id}")
@@ -134,8 +152,8 @@ async def chat_stream(req: ChatRequest):
             for tool in available_tools:
                 content_lower = req.message.lower()
                 keywords = ["文档", "搜索", "查找", "总结", "对比", "这份", "这些", "上传"]
-                if any(kw in content_lower for kw in keywords):
-                    tool_result = await tool.run(query=req.message)
+                if any(kw in content_lower for kw in keywords) or doc_ids:
+                    tool_result = await tool.run(query=req.message, doc_ids=doc_ids)
 
             system_parts = ["你是一个专业的文档助手。"]
             if doc_ids:

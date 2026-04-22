@@ -58,10 +58,11 @@ def build_agent_graph():
 
         # 简单启发式：包含关键词时调用工具
         keywords = ["文档", "搜索", "查找", "总结", "对比", "这份", "这些", "上传"]
-        if any(kw in content for kw in keywords):
+        doc_ids = state.get("tools_used", []) or []
+        if any(kw in content for kw in keywords) or doc_ids:
             for tool in available_tools:
                 if isinstance(tool, BaseTool):
-                    result = asyncio.run(tool.run(query=content))
+                    result = asyncio.run(tool.run(query=content, doc_ids=doc_ids))
                     results.append(result)
                     tools_used.append(tool.name)
 
