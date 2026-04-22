@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8001
 
+    # 文档服务地址
+    doc_parser_url: str = "http://localhost:8000"
+
     class Config:
         env_file = ".env"
 
