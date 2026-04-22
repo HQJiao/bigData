@@ -18,11 +18,12 @@ export interface ChatResponse {
 export async function chat(
   message: string,
   conversationId?: string,
+  docIds?: string[],
 ): Promise<ChatResponse> {
   const { data } = await llmApi.post('/chat', {
     message,
     conversation_id: conversationId,
-    stream: false,
+    doc_ids: docIds || [],
   })
   return data
 }
@@ -30,11 +31,16 @@ export async function chat(
 export function chatStream(
   message: string,
   conversationId: string | undefined,
+  docIds: string[] | undefined,
   onToken: (token: string) => void,
   onEnd: (conversationId: string) => void,
   onError: (message: string) => void,
 ): void {
-  const body = JSON.stringify({ message, conversation_id: conversationId, stream: true })
+  const body = JSON.stringify({
+    message,
+    conversation_id: conversationId,
+    doc_ids: docIds || [],
+  })
   fetch('/api/llm/chat/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
