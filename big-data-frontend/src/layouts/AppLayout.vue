@@ -2,7 +2,7 @@
   <el-container class="app-layout">
     <el-aside width="240px" class="sidebar">
       <div class="logo">
-        <span class="logo-text">纪检知识库</span>
+        <span class="logo-text">纪检办公助手</span>
       </div>
       <el-menu
         :default-active="activeMenu"
