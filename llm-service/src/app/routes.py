@@ -112,15 +112,18 @@ async def chat(req: ChatRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(conv)
 
-    conv.messages = conv.messages or []
-    conv.messages.append({"role": "user", "content": req.message})
+    current_messages = list(conv.messages or [])
+    current_messages.append({"role": "user", "content": req.message})
 
     doc_ids = req.doc_ids or conv.doc_ids or []
-    result = _graph.invoke({"messages": list(conv.messages), "tools_used": doc_ids})
+    result = _graph.invoke({"messages": current_messages, "tools_used": doc_ids})
 
     assistant_msg = result.get("llm_response", "")
-    conv.messages.append({"role": "assistant", "content": assistant_msg})
-    conv.message_count = len(conv.messages)
+    current_messages.append({"role": "assistant", "content": assistant_msg})
+
+    # 用新列表替换，确保 SQLAlchemy 检测到 JSON 列变更
+    conv.messages = current_messages
+    conv.message_count = len(current_messages)
 
     if conv.message_count == 2 and conv.title == "新对话":
         conv.title = req.message[:30] + ("..." if len(req.message) > 30 else "")
@@ -148,15 +151,16 @@ async def chat_stream(req: ChatRequest, db: Session = Depends(get_db)):
             db.refresh(conv)
 
         conv_id = str(conv.id)
-        conv.messages = conv.messages or []
-        conv.messages.append({"role": "user", "content": req.message})
+        current_messages = list(conv.messages or [])
+        current_messages.append({"role": "user", "content": req.message})
+        conv.messages = current_messages
         db.commit()
 
         yield f"data: {json.dumps({'event': 'start', 'conversation_id': conv_id})}\n\n"
 
         full_reply = ""
         try:
-            messages = list(conv.messages)
+            messages = current_messages
             doc_ids = req.doc_ids or conv.doc_ids or []
             client = create_client()
             tool_result = ""
@@ -179,8 +183,9 @@ async def chat_stream(req: ChatRequest, db: Session = Depends(get_db)):
             yield f"data: {json.dumps({'event': 'error', 'message': str(e)})}\n\n"
             return
 
-        conv.messages.append({"role": "assistant", "content": full_reply})
-        conv.message_count = len(conv.messages)
+        current_messages.append({"role": "assistant", "content": full_reply})
+        conv.messages = current_messages
+        conv.message_count = len(current_messages)
         if conv.message_count == 2 and conv.title == "新对话":
             conv.title = req.message[:30] + ("..." if len(req.message) > 30 else "")
         db.commit()
