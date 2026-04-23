@@ -84,14 +84,44 @@
       </div>
 
       <div class="chat-input">
-        <el-input
-          v-model="input"
-          type="textarea"
-          :autosize="{ minRows: 1, maxRows: 4 }"
-          placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
-          @keydown.enter.exact.prevent="sendMessage"
-          :disabled="isLoading"
-        />
+        <div class="input-wrapper">
+          <button class="attach-btn" @click="fileInputRef?.click()" :disabled="isLoading" title="上传文档">
+            <el-icon><Paperclip /></el-icon>
+          </button>
+          <input
+            type="file"
+            ref="fileInputRef"
+            style="display: none"
+            accept=".docx,.xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.bmp,.eml,.msg,.txt,.md,.json,.xml,.yml,.yaml"
+            @change="handleFileUpload"
+          />
+          <div v-if="selectedDocIds.length > 0 || uploadingFiles.some(f => f.uploading)" class="doc-chips">
+            <span
+              v-for="docId in selectedDocIds"
+              :key="docId"
+              class="doc-chip"
+            >
+              <span class="chip-name">{{ allDocuments.find(d => d.id === docId)?.filename || docId.slice(0, 8) }}</span>
+              <el-icon class="chip-close" @click="removeDocChip(docId)"><Close /></el-icon>
+            </span>
+            <span
+              v-for="f in uploadingFiles.filter(f => f.uploading)"
+              :key="'upload-' + f.filename"
+              class="doc-chip uploading"
+            >
+              <span class="chip-name">{{ f.filename }}</span>
+              <el-icon class="chip-close is-loading"><Loading /></el-icon>
+            </span>
+          </div>
+          <el-input
+            v-model="input"
+            type="textarea"
+            :autosize="{ minRows: 1, maxRows: 4 }"
+            placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+            @keydown.enter.exact.prevent="sendMessage"
+            :disabled="isLoading"
+          />
+        </div>
         <div class="input-actions">
           <el-button
             v-if="isLoading"
@@ -118,9 +148,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import {
-  ChatDotRound, Loading, Promotion, Plus, MoreFilled, Fold, Expand,
+  ChatDotRound, Loading, Promotion, Plus, MoreFilled, Fold, Expand, Paperclip, Close,
 } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import MarkdownRenderer from '../components/chat/MarkdownRenderer.vue'
 import { useConversationStore } from '../stores/conversations'
 import { chatStream } from '../api/llm'
@@ -143,6 +173,8 @@ const sidebarCollapsed = ref(false)
 const messagesRef = ref<HTMLElement | null>(null)
 const selectedDocIds = ref<string[]>([])
 const allDocuments = ref<any[]>([])
+const uploadingFiles = ref<{ id: string; filename: string; uploading: boolean }[]>([])
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 async function loadDocuments() {
   try {
@@ -152,6 +184,43 @@ async function loadDocuments() {
   } catch {
     allDocuments.value = []
   }
+}
+
+async function handleFileUpload(files: FileList | null) {
+  if (!files || files.length === 0) return
+  for (const file of files) {
+    const chip = { id: '', filename: file.name, uploading: true }
+    uploadingFiles.value.push(chip)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/files', { method: 'POST', body: formData })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.detail || '上传失败')
+      }
+      const data = await res.json()
+      chip.id = data.id
+      chip.uploading = false
+      // 自动选中
+      if (!selectedDocIds.value.includes(data.id)) {
+        selectedDocIds.value.push(data.id)
+      }
+      // 刷新文档列表
+      await loadDocuments()
+      ElMessage.success(`"${file.name}" 上传成功`)
+    } catch (e: any) {
+      uploadingFiles.value = uploadingFiles.value.filter(f => f !== chip)
+      ElMessage.error(e.message || '上传失败')
+    }
+  }
+  // 清空 input 以便重复选择同一文件
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
+function removeDocChip(docId: string) {
+  selectedDocIds.value = selectedDocIds.value.filter(id => id !== docId)
+  uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== docId)
 }
 
 async function createNew() {
@@ -411,9 +480,95 @@ onMounted(() => {
   align-items: flex-end;
 }
 
+.input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-secondary, #f9f5f0);
+  border: 1px solid var(--border-color, #e8e0d8);
+  border-radius: 12px;
+  padding: 8px 12px;
+  transition: border-color 0.2s;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--primary-color, #c4704f);
+}
+
+.attach-btn {
+  display: flex;
+  align-self: flex-start;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #6b5744);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.attach-btn:hover {
+  background: var(--primary-light, #f5e6d8);
+  color: var(--primary-color, #c4704f);
+}
+
+.attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.doc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 10px;
+  background: var(--primary-light, #f5e6d8);
+  color: var(--text-primary, #2c1810);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 160px;
+}
+
+.doc-chip.uploading {
+  opacity: 0.6;
+}
+
+.chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-close {
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.chip-close:hover {
+  opacity: 1;
+}
+
 .chat-input :deep(.el-textarea__inner) {
   border-radius: 8px;
-  background: var(--bg-secondary, #f9f5f0);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 4px 0;
+}
+
+.chat-input :deep(.el-textarea__inner):focus {
+  box-shadow: none;
 }
 
 .input-actions {
