@@ -186,7 +186,9 @@ async function loadDocuments() {
   }
 }
 
-async function handleFileUpload(files: FileList | null) {
+async function handleFileUpload(event: Event) {
+  const fileInput = event.target as HTMLInputElement
+  const files = fileInput.files
   if (!files || files.length === 0) return
   for (const file of files) {
     const chip = { id: '', filename: file.name, uploading: true }
@@ -215,7 +217,7 @@ async function handleFileUpload(files: FileList | null) {
     }
   }
   // 清空 input 以便重复选择同一文件
-  if (fileInputRef.value) fileInputRef.value.value = ''
+  fileInput.value = ''
 }
 
 function removeDocChip(docId: string) {
